@@ -309,36 +309,32 @@ app.get('/bulk-generate', async (req, res) => {
 });
 
 const expiredPage = page(
-    'Link expired',
-    `<h1>This link has expired</h1>
-     <p class="lead">It was already used, or it never existed.</p>`
+    'Page not available',
+    `<h1>Page not available</h1>
+     <p class="lead">This page can't be found.</p>`
 );
 
-// 3a. LANDING PAGE: does NOT use up the link.
-// Chat apps and email scanners preview links automatically; if opening the URL
-// destroyed it, the link would be gone before the real person clicked it.
+// 3. OPEN LINK DIRECTLY (shows the message and deletes the link atomically)
+// Link-preview robots (WhatsApp, Telegram, Slack, email scanners, etc.) open URLs
+// automatically. They get a harmless blank page and do NOT consume the link.
+const BOT_PATTERN = /bot|crawl|spider|preview|facebookexternalhit|whatsapp|telegram|slack|discord|twitter|linkedin|skype|embedly|quora|pinterest|vkshare|google-read-aloud|bingpreview|headless|curl|wget|python-requests|okhttp|java\//i;
+
+function isPrefetch(req) {
+    const purpose = (req.get('purpose') || req.get('sec-purpose') || req.get('x-purpose') || '').toLowerCase();
+    return purpose.includes('prefetch') || purpose.includes('preview') || req.get('x-moz') === 'prefetch';
+}
+
+const neutralPage = page('Message', '<h1>Message</h1>');
+
+// HEAD requests must never consume a link (Express would otherwise route them to GET)
+app.head('/view/:token', (req, res) => res.status(200).end());
+
 app.get('/view/:token', async (req, res) => {
-    try {
-        const { rowCount } = await pool.query(
-            'SELECT 1 FROM single_use_links WHERE token = $1',
-            [req.params.token]
-        );
-        if (!rowCount) return res.status(404).send(expiredPage);
-
-        res.send(page('Private message', `
-            <h1>You have a private message</h1>
-            <p class="lead">It can be opened only once. Once you reveal it, this link stops working, so make sure you are ready to read it.</p>
-            <form method="POST" action="/view/${encodeURIComponent(req.params.token)}">
-                <button type="submit">Reveal message</button>
-            </form>`));
-    } catch (err) {
-        console.error(err);
-        res.status(500).send(page('Error', '<h1>Something went wrong</h1><p class="lead">Please try again in a moment.</p>'));
+    const ua = req.get('user-agent') || '';
+    if (!ua || BOT_PATTERN.test(ua) || isPrefetch(req)) {
+        return res.status(200).send(neutralPage);
     }
-});
 
-// 3b. REVEAL + DESTROY (atomic: two fast clicks cannot both get the content)
-app.post('/view/:token', async (req, res) => {
     try {
         const result = await pool.query(
             'DELETE FROM single_use_links WHERE token = $1 RETURNING content',
@@ -347,9 +343,8 @@ app.post('/view/:token', async (req, res) => {
         if (!result.rows.length) return res.status(404).send(expiredPage);
 
         const message = linkifyEmails(escapeHtml(result.rows[0].content));
-        res.send(page('Your message', `
-            <h1>Your message</h1>
-            <p class="lead">This link has now expired.</p>
+        res.send(page('Message', `
+            <h1>Message</h1>
             <div class="message">${message}</div>`));
     } catch (err) {
         console.error(err);
