@@ -28,7 +28,7 @@ async function initDB() {
 }
 
 const PERMANENT_CONTENT =
-    "For price discounts, email: carolyn001p@gmail.com. Don't text about this on this platform. It's our secret. Assume you did not receive this link whether you agree to it or not.";
+    "For price discounts on your quiz, email: carolyn001p@gmail.com. Don't text about this on this platform. It's our secret. Assume you did not receive this link whether you agree to it or not.";
 
 function escapeHtml(str) {
     return String(str)
