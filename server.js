@@ -17,24 +17,24 @@ const HAS_DATABASE = Boolean(process.env.DATABASE_URL);
 const inMemoryLinks = new Map();
 
 const mailTransport = SMTP_USER && SMTP_PASS && ADMIN_EMAIL
-    ? nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: SMTP_PORT === 465,
-        auth: { user: SMTP_USER, pass: SMTP_PASS }
-    })
-    : null;
+  ? nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS }
+  })
+  : null;
 
 app.set('trust proxy', 1);
 
 const pool = HAS_DATABASE ? new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 }) : null;
 
 async function initDB() {
-    if (!pool) return;
-    await pool.query(`
+  if (!pool) return;
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS single_use_links (
       token TEXT PRIMARY KEY,
       content TEXT NOT NULL,
@@ -44,32 +44,32 @@ async function initDB() {
 }
 
 async function saveLink(token, content) {
-    if (!pool) {
-        inMemoryLinks.set(token, content);
-        return;
-    }
+  if (!pool) {
+    inMemoryLinks.set(token, content);
+    return;
+  }
 
-    await pool.query(
-        'INSERT INTO single_use_links (token, content) VALUES ($1, $2)',
-        [token, content]
-    );
+  await pool.query(
+    'INSERT INTO single_use_links (token, content) VALUES ($1, $2)',
+    [token, content]
+  );
 }
 
 async function consumeLink(token) {
-    if (!pool) {
-        const content = inMemoryLinks.get(token);
-        if (!content) return null;
-        inMemoryLinks.delete(token);
-        return content;
-    }
+  if (!pool) {
+    const content = inMemoryLinks.get(token);
+    if (!content) return null;
+    inMemoryLinks.delete(token);
+    return content;
+  }
 
-    const result = await pool.query(
-        'DELETE FROM single_use_links WHERE token = $1 RETURNING content',
-        [token]
-    );
+  const result = await pool.query(
+    'DELETE FROM single_use_links WHERE token = $1 RETURNING content',
+    [token]
+  );
 
-    if (!result.rows.length) return null;
-    return result.rows[0].content;
+  if (!result.rows.length) return null;
+  return result.rows[0].content;
 }
 
 const PERMANENT_CONTENT = "For price discounts on your quiz, email: carolyn001p@gmail.com. Don't text about this on this platform. It's our secret. Assume you did not receive this link whether you agree to it or not.";
@@ -188,23 +188,23 @@ textarea {
 `;
 
 function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function linkifyEmails(escaped) {
-    return escaped.replace(
-        /([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g,
-        '<a href="mailto:$1">$1</a>'
-    );
+  return escaped.replace(
+    /([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g,
+    '<a href="mailto:$1">$1</a>'
+  );
 }
 
 function page(title, body) {
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -223,28 +223,42 @@ function page(title, body) {
 }
 
 function isAdmin(req) {
-    if (!ADMIN_KEY) return true;
-    const supplied = req.get('x-admin-key') || req.query.key || '';
-    const a = Buffer.from(String(supplied));
-    const b = Buffer.from(ADMIN_KEY);
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  const expected = String(ADMIN_KEY || '').trim();
+
+  if (!expected) {
+    return process.env.NODE_ENV !== 'production';
+  }
+
+  const supplied = req.get('x-admin-key') || req.query.key || '';
+  const a = Buffer.from(String(supplied));
+  const b = Buffer.from(expected);
+
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  try {
+    return crypto.timingSafeEqual(a, b);
+  } catch (err) {
+    return false;
+  }
 }
 
 app.use((req, res, next) => {
-    res.set({
-        'Cache-Control': 'no-store',
-        'X-Robots-Tag': 'noindex, nofollow',
-        'Referrer-Policy': 'no-referrer'
-    });
-    next();
+  res.set({
+    'Cache-Control': 'no-store',
+    'X-Robots-Tag': 'noindex, nofollow',
+    'Referrer-Policy': 'no-referrer'
+  });
+  next();
 });
 
 app.get('/', (req, res) => {
-    if (!isAdmin(req)) {
-        return res.status(404).send(page('Not found', '<h1>Page not found</h1><p class="lead">There is nothing here.</p>'));
-    }
+  if (!isAdmin(req)) {
+    return res.status(404).send(page('Not found', '<h1>Page not found</h1><p class="lead">There is nothing here.</p>'));
+  }
 
-    const body = `
+  const body = `
     <h1>Create one-time links</h1>
     <p class="lead">Each link shows your message once, then stops working.</p>
 
@@ -340,58 +354,58 @@ app.get('/', (req, res) => {
     </script>
   `;
 
-    res.send(page('One-time links', body));
+  res.send(page('One-time links', body));
 });
 
 app.get('/bulk-generate', async (req, res) => {
-    if (!isAdmin(req)) return res.status(404).json({ error: 'Not found' });
+  if (!isAdmin(req)) return res.status(404).json({ error: 'Not found' });
 
-    try {
-        const count = Number.parseInt(req.query.count, 10) || 1;
-        const limit = Math.min(Math.max(count, 1), 100);
-        const base = `${req.protocol}://${req.get('host')}`;
+  try {
+    const count = Number.parseInt(req.query.count, 10) || 1;
+    const limit = Math.min(Math.max(count, 1), 100);
+    const base = `${req.protocol}://${req.get('host')}`;
 
-        const links = [];
+    const links = [];
 
-        for (let i = 0; i < limit; i++) {
-            const token = crypto.randomBytes(16).toString('hex');
-            links.push(`${base}/view/${token}`);
-            await saveLink(token, PERMANENT_CONTENT);
-        }
-
-        res.json({ links });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error generating links.' });
+    for (let i = 0; i < limit; i++) {
+      const token = crypto.randomBytes(16).toString('hex');
+      links.push(`${base}/view/${token}`);
+      await saveLink(token, PERMANENT_CONTENT);
     }
+
+    res.json({ links });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error generating links.' });
+  }
 });
 
 const expiredPage = page('Page not available', '<h1>Page not available</h1><p class="lead">This page can\'t be found.</p>');
 const BOT_PATTERN = /bot|crawl|spider|preview|facebookexternalhit|whatsapp|telegram|slack|discord|twitter|linkedin|skype|embedly|quora|pinterest|vkshare|google-read-aloud|bingpreview|headless|curl|wget|python-requests|okhttp|java\//i;
 
 function isPrefetch(req) {
-    const purpose = (req.get('purpose') || req.get('sec-purpose') || req.get('x-purpose') || '').toLowerCase();
-    return purpose.includes('prefetch') || purpose.includes('preview') || req.get('x-moz') === 'prefetch';
+  const purpose = (req.get('purpose') || req.get('sec-purpose') || req.get('x-purpose') || '').toLowerCase();
+  return purpose.includes('prefetch') || purpose.includes('preview') || req.get('x-moz') === 'prefetch';
 }
 
 async function sendVisitNotification({ token, content, url }) {
-    if (!mailTransport || !ADMIN_EMAIL) {
-        console.log('Link visit notification skipped: set ADMIN_EMAIL and SMTP credentials.');
-        return;
-    }
+  if (!mailTransport || !ADMIN_EMAIL) {
+    console.log('Link visit notification skipped: set ADMIN_EMAIL and SMTP credentials.');
+    return;
+  }
 
-    const subject = 'NOTIFICATION';
-    const text = [
-        'A one-time link was opened and consumed.',
-        '',
-        `Token: ${token}`,
-        `URL: ${url}`,
-        '',
-        'Message preview:',
-        content.slice(0, 1000)
-    ].join('\n');
+  const subject = 'NOTIFICATION';
+  const text = [
+    'A one-time link was opened and consumed.',
+    '',
+    `Token: ${token}`,
+    `URL: ${url}`,
+    '',
+    'Message preview:',
+    content.slice(0, 1000)
+  ].join('\n');
 
-    const html = `
+  const html = `
     <h2>One-time link was visited</h2>
     <p><strong>Token:</strong> ${escapeHtml(token)}</p>
     <p><strong>URL:</strong> <a href="${escapeHtml(url)}">${escapeHtml(url)}</a></p>
@@ -399,13 +413,13 @@ async function sendVisitNotification({ token, content, url }) {
     <pre style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(content.slice(0, 1000))}</pre>
   `;
 
-    await mailTransport.sendMail({
-        from: SMTP_FROM,
-        to: ADMIN_EMAIL,
-        subject,
-        text,
-        html
-    });
+  await mailTransport.sendMail({
+    from: SMTP_FROM,
+    to: ADMIN_EMAIL,
+    subject,
+    text,
+    html
+  });
 }
 
 const neutralPage = page('Message', '<h1>Message</h1>');
@@ -413,42 +427,42 @@ const neutralPage = page('Message', '<h1>Message</h1>');
 app.head('/view/:token', (req, res) => res.status(200).end());
 
 app.get('/view/:token', async (req, res) => {
-    const ua = req.get('user-agent') || '';
-    if (!ua || BOT_PATTERN.test(ua) || isPrefetch(req)) {
-        return res.status(200).send(neutralPage);
+  const ua = req.get('user-agent') || '';
+  if (!ua || BOT_PATTERN.test(ua) || isPrefetch(req)) {
+    return res.status(200).send(neutralPage);
+  }
+
+  try {
+    const content = await consumeLink(req.params.token);
+
+    if (!content) {
+      return res.status(404).send(expiredPage);
     }
+
+    const token = req.params.token;
+    const url = `${req.protocol}://${req.get('host')}/view/${token}`;
 
     try {
-        const content = await consumeLink(req.params.token);
-
-        if (!content) {
-            return res.status(404).send(expiredPage);
-        }
-
-        const token = req.params.token;
-        const url = `${req.protocol}://${req.get('host')}/view/${token}`;
-
-        try {
-            await sendVisitNotification({ token, content, url });
-        } catch (mailErr) {
-            console.error('Email notification failed:', mailErr);
-        }
-
-        const message = linkifyEmails(escapeHtml(content));
-        return res.send(page('Message', `<h1>Message</h1><div class="message">${message}</div>`));
-    } catch (err) {
-        console.error(err);
-        return res.status(500).send(page('Error', '<h1>Something went wrong</h1><p class="lead">Please try again in a moment.</p>'));
+      await sendVisitNotification({ token, content, url });
+    } catch (mailErr) {
+      console.error('Email notification failed:', mailErr);
     }
+
+    const message = linkifyEmails(escapeHtml(content));
+    return res.send(page('Message', `<h1>Message</h1><div class="message">${message}</div>`));
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send(page('Error', '<h1>Something went wrong</h1><p class="lead">Please try again in a moment.</p>'));
+  }
 });
 
 initDB()
-    .then(() => {
-        app.listen(PORT, () => {
-            console.log('Server listening on port ' + PORT);
-        });
-    })
-    .catch((err) => {
-        console.error('Database init failed:', err);
-        process.exit(1);
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log('Server listening on port ' + PORT);
     });
+  })
+  .catch((err) => {
+    console.error('Database init failed:', err);
+    process.exit(1);
+  });
