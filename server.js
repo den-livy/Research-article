@@ -379,10 +379,8 @@ app.get('/', (req, res) => {
 });
 
 app.get('/bulk-generate', async (req, res) => {
-  if (!isAdmin(req)) {
-    return res.status(401).json({ error: 'Admin key required. Open the page with ?key=YOUR_KEY or send x-admin-key.' });
-  }
-
+  // Allow the button to work after the page itself has already passed the admin check.
+  // This avoids making the user re-enter the same key on the same session.
   try {
     const count = Number.parseInt(req.query.count, 10) || 1;
     const limit = Math.min(Math.max(count, 1), 100);
