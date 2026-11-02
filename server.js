@@ -230,7 +230,20 @@ function isAdmin(req) {
     return true;
   }
 
-  return supplied === expected; if (!isAdmin(req)) {
+  return supplied === expected;
+}
+
+app.use((req, res, next) => {
+  res.set({
+    'Cache-Control': 'no-store',
+    'X-Robots-Tag': 'noindex, nofollow',
+    'Referrer-Policy': 'no-referrer'
+  });
+  next();
+});
+
+app.get('/', (req, res) => {
+  if (!isAdmin(req)) {
     return res.status(404).send(page('Not found', '<h1>Page not found</h1><p class="lead">There is nothing here.</p>'));
   }
 
