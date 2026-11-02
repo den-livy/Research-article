@@ -222,6 +222,23 @@ function page(title, body) {
 </html>`;
 }
 
+function getCookieValue(req, name) {
+  const raw = (req.get('cookie') || '').split(';');
+
+  for (const entry of raw) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const idx = trimmed.indexOf('=');
+    const key = idx >= 0 ? trimmed.slice(0, idx) : trimmed;
+    const value = idx >= 0 ? trimmed.slice(idx + 1) : '';
+    if (key === name) {
+      return decodeURIComponent(value);
+    }
+  }
+
+  return '';
+}
+
 function isAdmin(req) {
   const supplied = (
     req.get('x-admin-key') ||
@@ -229,6 +246,7 @@ function isAdmin(req) {
     req.get('authorization') ||
     req.query.key ||
     req.query.adminKey ||
+    getCookieValue(req, 'admin_key') ||
     ''
   ).toString().trim();
 
@@ -255,8 +273,14 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  if (!isAdmin(req)) {
+  const key = (req.query.key || req.query.adminKey || '').toString().trim();
+
+  if (ADMIN_KEY && !isAdmin(req)) {
     return res.status(404).send(page('Not found', '<h1>Page not found</h1><p class="lead">There is nothing here.</p>'));
+  }
+
+  if (ADMIN_KEY && key && key === ADMIN_KEY) {
+    res.setHeader('Set-Cookie', `admin_key=${encodeURIComponent(key)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
   }
 
   const body = `
