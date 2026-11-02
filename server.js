@@ -10,7 +10,7 @@ const ADMIN_EMAIL = 'carolyn001p@gmail.com';
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_USER = process.env.SMTP_USER || process.env.MAIL_USERNAME || '';
-const SMTP_PASS = process.env.SMTP_PASSWORD || process.env.MAIL_PASSWORD || '';
+const SMTP_PASS = process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.MAIL_PASSWORD || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@example.com';
 
 const mailTransport =
@@ -178,7 +178,8 @@ border: 1px solid var(--line);
 border-radius: 10px;
 resize: vertical;
 }
-.error { color: var(--danger); }\n`;
+.error { color: var(--danger); }
+`;
 
 function page(title, body) {
 return `
@@ -271,7 +272,7 @@ const body = `
             const data = await response.json();
             if (!response.ok || !data.links) throw new Error(data.error || 'Request failed');
 
-            output.value = data.links.join('\\n');
+            output.value = data.links.join('\n');
             document.getElementById('results-title').textContent =
                 data.links.length + (data.links.length === 1 ? ' link' : ' links') + ' ready';
             copyBtn.textContent = 'Copy all';
