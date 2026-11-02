@@ -285,9 +285,13 @@ app.get('/', (req, res) => {
         btn.textContent = 'Creating...';
         errorBox.hidden = true;
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         try {
           const response = await fetch('/bulk-generate?count=' + encodeURIComponent(count), {
-            headers: { 'x-admin-key': adminKey }
+            headers: { 'x-admin-key': adminKey },
+            signal: controller.signal
           });
 
           const rawText = await response.text();
@@ -310,10 +314,15 @@ app.get('/', (req, res) => {
           copyBtn.textContent = 'Copy all';
           results.style.display = 'block';
         } catch (err) {
+          if (err && err.name === 'AbortError') {
+            errorBox.textContent = 'Request timed out. Check the server and database configuration.';
+          } else {
+            errorBox.textContent = err && err.message ? err.message : 'Could not create links. Check your connection and try again.';
+          }
           results.style.display = 'block';
-          errorBox.textContent = err && err.message ? err.message : 'Could not create links. Check your connection and try again.';
           errorBox.hidden = false;
         } finally {
+          clearTimeout(timeoutId);
           btn.disabled = false;
           btn.textContent = 'Create links';
         }
