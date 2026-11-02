@@ -44,9 +44,8 @@ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 `);
 }
 
-const PERMANENT_CONTENT =
-"For price discounts on your quiz, email: carolyn001p@gmail.com. Don't text about this on this platform. It's our
-secret. Assume you did not receive this link whether you agree to it or not.";
+const PERMANENT_CONTENT = `For price discounts on your quiz, email: carolyn001p@gmail.com. Don't text about this on this
+platform. It's our secret. Assume you did not receive this link whether you agree to it or not.`;
 
 function escapeHtml(str) {
 return String(str)
@@ -410,8 +409,6 @@ for (let i = 0; i < limit; i++) { const token=crypto.randomBytes(16).toString('h
     console.error(err);
     res.status(500).send(page('Error', '<h1>Something went wrong</h1>
     <p class="lead">Please try again in a moment.</p>'));
-    }
-    });
 
     // Start listening only after the table exists
     initDB()
