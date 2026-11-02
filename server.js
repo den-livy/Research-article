@@ -13,7 +13,7 @@ const SMTP_USER = process.env.SMTP_USER || process.env.MAIL_USERNAME || '';
 const SMTP_PASS = process.env.SMTP_PASSWORD || process.env.MAIL_PASSWORD || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@example.com';
 
-const mailTransport = (SMTP_USER && SMTP_PASS && ADMIN_EMAIL)
+const mailTransport = SMTP_USER && SMTP_PASS && ADMIN_EMAIL
 ? nodemailer.createTransport({
 host: SMTP_HOST,
 port: SMTP_PORT,
@@ -22,11 +22,8 @@ auth: { user: SMTP_USER, pass: SMTP_PASS }
 })
 : null;
 
-// Optional but strongly recommended: set ADMIN_KEY in your environment.
-// Then open your dashboard at https://your-site.com/?key=YOUR_KEY
 const ADMIN_KEY = process.env.ADMIN_KEY || '';
 
-// Lets req.protocol be correct behind Render's proxy
 app.set('trust proxy', 1);
 
 const pool = new Pool({
@@ -55,7 +52,6 @@ return String(str)
 .replace(/'/g, '&#39;');
 }
 
-// Turns email addresses in (already escaped) text into mailto links
 function linkifyEmails(escaped) {
 return escaped.replace(
 /([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g,
@@ -63,7 +59,6 @@ return escaped.replace(
 );
 }
 
-// Never cache, never index, never leak the URL as a referrer
 app.use((req, res, next) => {
 res.set({
 'Cache-Control': 'no-store',
@@ -219,7 +214,6 @@ const b = Buffer.from(ADMIN_KEY);
 return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-// 1. DASHBOARD
 app.get('/', (req, res) => {
 if (!isAdmin(req)) {
 return res.status(404).send(page('Not found', '<h1>Page not found</h1>
@@ -296,12 +290,12 @@ const body = `
         }
         copyBtn.textContent = 'Copied';
     });
-</script>`;
+</script>
+`;
 
 res.send(page('One-time links', body));
 });
 
-// 2. BULK GENERATION API
 app.get('/bulk-generate', async (req, res) => {
 if (!isAdmin(req)) return res.status(404).json({ error: 'Not found' });
 
@@ -316,21 +310,13 @@ const placeholders = [];
 
 for (let i = 0; i < limit; i++) { const token=crypto.randomBytes(16).toString('hex'); links.push(base + '/view/' +
     token); values.push(token, PERMANENT_CONTENT); placeholders.push('($' + (i * 2 + 1) + ', $' + (i * 2 + 2) + ')' ); }
-    await pool.query( 'INSERT INTO single_use_links (token, content) VALUES ' + placeholders.join(', '),
-            values
-        );
+    await pool.query('INSERT INTO single_use_links (token, content) VALUES ' + placeholders.join(' , '), values);
+    res.json({ links });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: ' Server error generating links.' }); } }); const expiredPage=page('Page not
+    available', '<h1>Page not available</h1><p class="lead">This page can\' t be found.</p>');
 
-        res.json({ links });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: ' Server error generating links.' }); } }); const
-    expiredPage=page( 'Page not available' , `<h1>Page not available</h1>
-    <p class="lead">This page can't be found.</p>`
-    );
-
-    // 3. OPEN LINK DIRECTLY (shows the message and deletes the link atomically)
-    // Link-preview robots (WhatsApp, Telegram, Slack, email scanners, etc.) open URLs
-    // automatically. They get a harmless blank page and do NOT consume the link.
     const BOT_PATTERN =
     /bot|crawl|spider|preview|facebookexternalhit|whatsapp|telegram|slack|discord|twitter|linkedin|skype|embedly|quora|pinterest|vkshare|google-read-aloud|bingpreview|headless|curl|wget|python-requests|okhttp|java\//i;
 
@@ -375,7 +361,6 @@ for (let i = 0; i < limit; i++) { const token=crypto.randomBytes(16).toString('h
 
     const neutralPage = page('Message', '<h1>Message</h1>');
 
-    // HEAD requests must never consume a link (Express would otherwise route them to GET)
     app.head('/view/:token', (req, res) => res.status(200).end());
 
     app.get('/view/:token', async (req, res) => {
@@ -389,6 +374,7 @@ for (let i = 0; i < limit; i++) { const token=crypto.randomBytes(16).toString('h
     'DELETE FROM single_use_links WHERE token = $1 RETURNING content',
     [req.params.token]
     );
+
     if (!result.rows.length) return res.status(404).send(expiredPage);
 
     const token = req.params.token;
@@ -402,15 +388,15 @@ for (let i = 0; i < limit; i++) { const token=crypto.randomBytes(16).toString('h
     }
 
     const message = linkifyEmails(escapeHtml(content));
-    res.send(page('Message', `
-    <h1>Message</h1>
+    res.send(page('Message', `<h1>Message</h1>
     <div class="message">${message}</div>`));
     } catch (err) {
     console.error(err);
     res.status(500).send(page('Error', '<h1>Something went wrong</h1>
     <p class="lead">Please try again in a moment.</p>'));
+    }
+    });
 
-    // Start listening only after the table exists
     initDB()
     .then(() => app.listen(PORT, () => console.log('Server listening on port ' + PORT)))
     .catch((err) => {
