@@ -7,6 +7,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'carolyn001p@gmail.com';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.gmail.com';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_USER = process.env.SMTP_USER || process.env.MAIL_USERNAME || '';
@@ -18,11 +19,11 @@ const inMemoryLinks = new Map();
 
 const mailTransport = SMTP_USER && SMTP_PASS && ADMIN_EMAIL
   ? nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
-      auth: { user: SMTP_USER, pass: SMTP_PASS }
-    })
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS }
+  })
   : null;
 
 app.set('trust proxy', 1);
@@ -441,12 +442,28 @@ function isPrefetch(req) {
   return purpose.includes('prefetch') || purpose.includes('preview') || req.get('x-moz') === 'prefetch';
 }
 
-async function sendVisitNotification({ token, content, url }) {
-  if (!mailTransport || !ADMIN_EMAIL) {
-    console.log('Link visit notification skipped: set ADMIN_EMAIL and SMTP credentials.');
-    return;
-  }
+async function sendViaResend({ subject, text, html }) {
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: 'Link Notifier <onboarding@resend.dev>',
+      to: [ADMIN_EMAIL],
+      subject,
+      text,
+      html
+    })
+  });
 
+  if (!response.ok) {
+    throw new Error(`Resend error ${response.status}: ${await response.text()}`);
+  }
+}
+
+async function sendVisitNotification({ token, content, url }) {
   const subject = 'NOTIFICATION';
   const text = [
     'A one-time link was opened and consumed.',
@@ -466,13 +483,29 @@ async function sendVisitNotification({ token, content, url }) {
     <pre style="white-space: pre-wrap; word-break: break-word;">${escapeHtml(content.slice(0, 1000))}</pre>
   `;
 
-  await mailTransport.sendMail({
-    from: SMTP_FROM,
-    to: ADMIN_EMAIL,
-    subject,
-    text,
-    html
-  });
+  // 1) Try Resend (HTTPS) first
+  if (RESEND_API_KEY && ADMIN_EMAIL) {
+    try {
+      await sendViaResend({ subject, text, html });
+      return;
+    } catch (err) {
+      console.error('Resend failed, trying SMTP:', err);
+    }
+  }
+
+  // 2) Fall back to SMTP
+  if (mailTransport && ADMIN_EMAIL) {
+    await mailTransport.sendMail({
+      from: SMTP_FROM,
+      to: ADMIN_EMAIL,
+      subject,
+      text,
+      html
+    });
+    return;
+  }
+
+  console.log('Link visit notification skipped: set RESEND_API_KEY or SMTP credentials, and ADMIN_EMAIL.');
 }
 
 const neutralPage = page('Message', '<h1>Message</h1>');
