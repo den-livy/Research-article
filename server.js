@@ -72,7 +72,7 @@ async function consumeLink(token) {
   return result.rows[0].content;
 }
 
-const PERMANENT_CONTENT = "For price discounts on your quiz, email: carolyn001p@gmail.com. Don't text about this on this platform. It's our secret. Assume you did not receive this link whether you agree to it or not.";
+const PERMANENT_CONTENT = "For price discounts on your papers, email: carolyn001p@gmail.com. Don't text about this on this platform. It's confidential. Assume you did not receive this link whether you agree to it or not.";
 
 const STYLES = `
 :root {
@@ -495,27 +495,20 @@ app.get('/view/:token', async (req, res) => {
     const token = req.params.token;
     const url = `${req.protocol}://${req.get('host')}/view/${token}`;
 
-    try {
-      await sendVisitNotification({ token, content, url });
-    } catch (mailErr) {
+    void sendVisitNotification({ token, content, url }).catch((mailErr) => {
       console.error('Email notification failed:', mailErr);
-    }
+    });
 
     const message = linkifyEmails(escapeHtml(content));
     return res.send(page('Message', `<h1>Message</h1><div class="message">${message}</div>`));
-  } catch (err) {
-    console.error(err);
-    return res.status(500).send(page('Error', '<h1>Something went wrong</h1><p class="lead">Please try again in a moment.</p>'));
-  }
-});
 
-initDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log('Server listening on port ' + PORT);
-    });
-  })
-  .catch((err) => {
-    console.error('Database init failed:', err);
-    process.exit(1);
-  });
+    initDB()
+      .then(() => {
+        app.listen(PORT, () => {
+          console.log('Server listening on port ' + PORT);
+        });
+      })
+      .catch((err) => {
+        console.error('Database init failed:', err);
+        process.exit(1);
+      });
