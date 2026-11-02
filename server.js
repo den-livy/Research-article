@@ -287,71 +287,78 @@ app.get('/', (req, res) => {
     </section>
 
     <script>
-      const adminKey = new URLSearchParams(location.search).get('key') || '';
+      const adminKey = new URLSearchParams(window.location.search).get('key') || '';
       const btn = document.getElementById('generate-btn');
       const copyBtn = document.getElementById('copy-btn');
       const results = document.getElementById('results');
       const output = document.getElementById('links-output');
       const errorBox = document.getElementById('error');
 
-      btn.addEventListener('click', async () => {
-        const count = document.getElementById('count').value;
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
-        errorBox.hidden = true;
+      if (!btn || !copyBtn || !results || !output || !errorBox) {
+        console.error('Create-links page is missing required elements.');
+      } else {
+        btn.addEventListener('click', async () => {
+          const countEl = document.getElementById('count');
+          const count = countEl ? countEl.value : '10';
+          btn.disabled = true;
+          btn.textContent = 'Creating...';
+          errorBox.hidden = true;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-        try {
-          const response = await fetch('/bulk-generate?count=' + encodeURIComponent(count), {
-            headers: { 'x-admin-key': adminKey },
-            signal: controller.signal
-          });
-
-          const rawText = await response.text();
-          let data = {};
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
 
           try {
-            data = rawText ? JSON.parse(rawText) : {};
+            const response = await fetch('/bulk-generate?count=' + encodeURIComponent(String(count)), {
+              method: 'GET',
+              headers: { 'x-admin-key': adminKey, 'Accept': 'application/json' },
+              signal: controller.signal
+            });
+
+            const rawText = await response.text();
+            let data = {};
+
+            try {
+              data = rawText ? JSON.parse(rawText) : {};
+            } catch (parseError) {
+              throw new Error(rawText || 'The server returned an invalid response.');
+            }
+
+            if (!response.ok || !Array.isArray(data.links)) {
+              throw new Error((data && data.error) || 'Request failed');
+            }
+
+            output.value = data.links.join('\n');
+            document.getElementById('results-title').textContent =
+              data.links.length + (data.links.length === 1 ? ' link' : ' links') + ' ready';
+
+            copyBtn.textContent = 'Copy all';
+            results.style.display = 'block';
+          } catch (err) {
+            console.error(err);
+            if (err && err.name === 'AbortError') {
+              errorBox.textContent = 'Request timed out. Check the server and database configuration.';
+            } else {
+              errorBox.textContent = err && err.message ? err.message : 'Could not create links. Check your connection and try again.';
+            }
+            results.style.display = 'block';
+            errorBox.hidden = false;
+          } finally {
+            clearTimeout(timeoutId);
+            btn.disabled = false;
+            btn.textContent = 'Create links';
+          }
+        });
+
+        copyBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(output.value);
           } catch (e) {
-            data = { error: rawText || 'Request failed' };
+            output.select();
+            document.execCommand('copy');
           }
-
-          if (!response.ok || !Array.isArray(data.links)) {
-            throw new Error(data.error || 'Request failed');
-          }
-
-          output.value = data.links.join('\n');
-          document.getElementById('results-title').textContent =
-            data.links.length + (data.links.length === 1 ? ' link' : ' links') + ' ready';
-
-          copyBtn.textContent = 'Copy all';
-          results.style.display = 'block';
-        } catch (err) {
-          if (err && err.name === 'AbortError') {
-            errorBox.textContent = 'Request timed out. Check the server and database configuration.';
-          } else {
-            errorBox.textContent = err && err.message ? err.message : 'Could not create links. Check your connection and try again.';
-          }
-          results.style.display = 'block';
-          errorBox.hidden = false;
-        } finally {
-          clearTimeout(timeoutId);
-          btn.disabled = false;
-          btn.textContent = 'Create links';
-        }
-      });
-
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(output.value);
-        } catch (e) {
-          output.select();
-          document.execCommand('copy');
-        }
-        copyBtn.textContent = 'Copied';
-      });
+          copyBtn.textContent = 'Copied';
+        });
+      }
     </script>
   `;
 
