@@ -316,7 +316,13 @@ app.get('/', (req, res) => {
               throw new Error('Your browser does not support fetch().');
             }
 
-            const response = await fetch('/bulk-generate?count=' + encodeURIComponent(String(count)), {
+            const url = new URL('/bulk-generate', window.location.origin);
+            url.searchParams.set('count', String(count));
+            if (adminKey) {
+              url.searchParams.set('key', adminKey);
+            }
+
+            const response = await fetch(url.toString(), {
               method: 'GET',
               headers: {
                 'x-admin-key': adminKey,
@@ -379,8 +385,10 @@ app.get('/', (req, res) => {
 });
 
 app.get('/bulk-generate', async (req, res) => {
-  // Allow the button to work after the page itself has already passed the admin check.
-  // This avoids making the user re-enter the same key on the same session.
+  if (ADMIN_KEY && !isAdmin(req)) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
   try {
     const count = Number.parseInt(req.query.count, 10) || 1;
     const limit = Math.min(Math.max(count, 1), 100);
