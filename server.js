@@ -20,7 +20,7 @@ const mailTransport = SMTP_USER && SMTP_PASS && ADMIN_EMAIL
   ? nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
-      secure: SMTP_PORT === 587,
+      secure: SMTP_PORT === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS }
     })
   : null;
