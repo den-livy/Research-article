@@ -367,7 +367,7 @@ app.get('/', (req, res) => {
               throw new Error((data && data.error) || 'Request failed.');
             }
 
-            output.value = data.links.join('\n');
+            output.value = data.links.join('\\n');
             title.textContent = data.links.length + (data.links.length === 1 ? ' link' : ' links') + ' ready';
             copyBtn.textContent = 'Copy all';
             results.style.display = 'block';
