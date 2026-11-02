@@ -18,11 +18,11 @@ const inMemoryLinks = new Map();
 
 const mailTransport = SMTP_USER && SMTP_PASS && ADMIN_EMAIL
   ? nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
-  })
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
+      auth: { user: SMTP_USER, pass: SMTP_PASS }
+    })
   : null;
 
 app.set('trust proxy', 1);
@@ -501,14 +501,19 @@ app.get('/view/:token', async (req, res) => {
 
     const message = linkifyEmails(escapeHtml(content));
     return res.send(page('Message', `<h1>Message</h1><div class="message">${message}</div>`));
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(page('Error', '<h1>Something went wrong</h1><p class="lead">Please try again in a moment.</p>'));
+  }
+});
 
-    initDB()
-      .then(() => {
-        app.listen(PORT, () => {
-          console.log('Server listening on port ' + PORT);
-        });
-      })
-      .catch((err) => {
-        console.error('Database init failed:', err);
-        process.exit(1);
-      });
+initDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log('Server listening on port ' + PORT);
+    });
+  })
+  .catch((err) => {
+    console.error('Database init failed:', err);
+    process.exit(1);
+  });
