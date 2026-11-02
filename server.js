@@ -223,14 +223,26 @@ function page(title, body) {
 }
 
 function isAdmin(req) {
-  const supplied = req.get('x-admin-key') || req.query.key || '';
+  const supplied = (
+    req.get('x-admin-key') ||
+    req.get('x-admin-token') ||
+    req.get('authorization') ||
+    req.query.key ||
+    req.query.adminKey ||
+    ''
+  ).toString().trim();
+
   const expected = String(ADMIN_KEY || '').trim();
 
   if (!expected) {
     return true;
   }
 
-  return supplied === expected;
+  const bearer = supplied.toLowerCase().startsWith('bearer ')
+    ? supplied.slice(7).trim()
+    : supplied;
+
+  return bearer === expected;
 }
 
 app.use((req, res, next) => {
@@ -347,7 +359,9 @@ app.get('/', (req, res) => {
 });
 
 app.get('/bulk-generate', async (req, res) => {
-  if (!isAdmin(req)) return res.status(404).json({ error: 'Not found' });
+  if (!isAdmin(req)) {
+    return res.status(401).json({ error: 'Admin key required. Open the page with ?key=YOUR_KEY or send x-admin-key.' });
+  }
 
   try {
     const count = Number.parseInt(req.query.count, 10) || 1;
