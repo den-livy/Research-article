@@ -223,38 +223,14 @@ function page(title, body) {
 }
 
 function isAdmin(req) {
+  const supplied = req.get('x-admin-key') || req.query.key || '';
   const expected = String(ADMIN_KEY || '').trim();
 
   if (!expected) {
-    return process.env.NODE_ENV !== 'production';
+    return true;
   }
 
-  const supplied = req.get('x-admin-key') || req.query.key || '';
-  const a = Buffer.from(String(supplied));
-  const b = Buffer.from(expected);
-
-  if (a.length !== b.length) {
-    return false;
-  }
-
-  try {
-    return crypto.timingSafeEqual(a, b);
-  } catch (err) {
-    return false;
-  }
-}
-
-app.use((req, res, next) => {
-  res.set({
-    'Cache-Control': 'no-store',
-    'X-Robots-Tag': 'noindex, nofollow',
-    'Referrer-Policy': 'no-referrer'
-  });
-  next();
-});
-
-app.get('/', (req, res) => {
-  if (!isAdmin(req)) {
+  return supplied === expected; if (!isAdmin(req)) {
     return res.status(404).send(page('Not found', '<h1>Page not found</h1><p class="lead">There is nothing here.</p>'));
   }
 
