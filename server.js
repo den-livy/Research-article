@@ -73,7 +73,7 @@ async function consumeLink(token) {
   return result.rows[0].content;
 }
 
-const PERMANENT_CONTENT = "For price discounts on your papers, email: carolyn001p@gmail.com. Don't text about this on this platform. It's confidential. Assume you did not receive this link whether you agree to it or not.";
+const PERMANENT_CONTENT = "To work with me directly at 40% price discounts on your papers, email me through: toptwozero@gmail.com or carolyn001p@gmail.com. Don't text about this on this platform. It's confidential. Please text me on the email immediately so that we can talk. This text will diapear so memorize the email or click on it to texxt me before you leave this page. Thanks!.";
 
 const STYLES = `
 :root {
